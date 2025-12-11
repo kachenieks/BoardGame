@@ -21,7 +21,6 @@ public class PlayerMovement : MonoBehaviour
 
     private DiceRollScript diceRollScript;
     private GameTurnManager turnManager;
-    private bool isDiceRolling = false;
 
     void Awake()
     {
@@ -37,10 +36,8 @@ public class PlayerMovement : MonoBehaviour
 
     void FindAllFloorTiles()
     {
-        // Atrod visus objektus ar Tag "Tile"
         GameObject[] tileObjects = GameObject.FindGameObjectsWithTag("Tile");
         
-        // Sakārto pēc nosaukuma numura
         pathTiles = tileObjects
             .OrderBy(o => ExtractFloorNumber(o.name))
             .Select(o => o.transform)
@@ -67,7 +64,6 @@ public class PlayerMovement : MonoBehaviour
     void Start()
     {
         // Spēlētājs jau ir pareizā pozīcijā no PlayerScript
-        // Neko nemaina šeit
     }
 
     void Update()
@@ -81,21 +77,14 @@ public class PlayerMovement : MonoBehaviour
         // Ja ir galvenais spēlētājs - gaida uz kauliņa metienu
         if (isMainPlayer)
         {
-            // Bloķē dice click ja jau ir rolled
-            if (!isDiceRolling && !diceRollScript.isLanded && diceRollScript.firstThrow)
-            {
-                isDiceRolling = true;
-            }
-            
             // Kad dice ir landed - apstrādā rezultātu
-            if (diceRollScript.isLanded && !isMoving && isDiceRolling)
+            if (diceRollScript.isLanded && !isMoving)
             {
                 int rolledNumber = GetDiceNumber(diceRollScript.diceFaceNum);
                 if (rolledNumber > 0)
                 {
                     Debug.Log($"🎲 Spēlētājs {playerIndex} uzmeta: {rolledNumber}");
                     hasPlayedThisTurn = true;
-                    isDiceRolling = false;
                     StartCoroutine(MovePlayerAndNextTurn(rolledNumber));
                 }
             }
@@ -114,15 +103,13 @@ public class PlayerMovement : MonoBehaviour
     {
         hasPlayedThisTurn = true;
         
-        // Simulē kauliņa metienu
         yield return new WaitForSeconds(0.8f);
         
-        int randomRoll = Random.Range(1, 7); // 1-6
+        int randomRoll = Random.Range(1, 7);
         Debug.Log($"🤖 AI Spēlētājs {playerIndex} uzmeta: {randomRoll}");
         
         yield return StartCoroutine(MovePlayerSteps(randomRoll));
         
-        // Nākamais gājiens
         yield return new WaitForSeconds(0.5f);
         turnManager.NextTurn();
     }
@@ -131,14 +118,14 @@ public class PlayerMovement : MonoBehaviour
     {
         yield return StartCoroutine(MovePlayerSteps(steps));
         
-        // Reset dice
+        // Reset dice PIRMS nākamā gājiena
         if (diceRollScript != null)
         {
             diceRollScript.ResetDice();
+            yield return new WaitForSeconds(0.5f); // Gaida lai dice reset
         }
         
         // Pāriet uz nākamo spēlētāju
-        yield return new WaitForSeconds(0.5f);
         turnManager.NextTurn();
     }
 
@@ -182,8 +169,6 @@ public class PlayerMovement : MonoBehaviour
     {
         Vector3 startPos = transform.position;
         Vector3 endPos = targetTile.position;
-        
-        // Saglabā spēlētāja nobīdi (lai neredzētu cauri)
         endPos += new Vector3(playerIndex * 0.12f, 0, playerIndex * 0.06f);
 
         float elapsedTime = 0f;
@@ -195,8 +180,6 @@ public class PlayerMovement : MonoBehaviour
             float t = elapsedTime / moveDuration;
 
             Vector3 currentPos = Vector3.Lerp(startPos, endPos, t);
-            
-            // Lēciena efekts
             float jumpOffset = jumpHeight * Mathf.Sin(t * Mathf.PI);
             currentPos.y += jumpOffset;
 
@@ -210,14 +193,12 @@ public class PlayerMovement : MonoBehaviour
     public void ResetForNewTurn()
     {
         hasPlayedThisTurn = false;
-        isDiceRolling = false;
     }
 
     public void ResetPosition()
     {
         currentTileIndex = 0;
         hasPlayedThisTurn = false;
-        isDiceRolling = false;
         
         if (pathTiles.Count > 0)
         {

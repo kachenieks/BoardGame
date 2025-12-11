@@ -45,7 +45,7 @@ public class GameTurnManager : MonoBehaviour
 
     void FindAllPlayers()
     {
-        PlayerMovement[] foundPlayers = FindObjectsOfType<PlayerMovement>();
+        PlayerMovement[] foundPlayers = FindObjectsByType<PlayerMovement>(FindObjectsSortMode.None);
         
         // Sakārto pēc playerIndex
         allPlayers = foundPlayers.OrderBy(p => p.playerIndex).ToList();
