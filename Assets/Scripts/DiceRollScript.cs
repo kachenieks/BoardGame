@@ -1,131 +1,119 @@
 using UnityEngine;
 using System.Collections;
 
-
 public class DiceRollScript : MonoBehaviour
 {
     Rigidbody rBody;
-    Vector3 position;
-    [SerializeField] private float maxRandForcVal = 500f;
-    [SerializeField] private float startRollingForce = 1200f;
-    float forceX, forceY, forceZ;
+    Vector3 initialPosition;
+    Quaternion initialRotation;
+    
+    [SerializeField] private float throwForce = 500f;
+    [SerializeField] private float torqueForce = 300f;
+    
     public string diceFaceNum = "?";
     public bool isLanded = false;
     public bool firstThrow = false;
     
-    private bool hasRolledThisTurn = false; // Jauns - bloķē vairākus metienus
+    private bool hasRolledThisTurn = false;
     private GameTurnManager turnManager;
 
     void Awake()
     {
-        Initialize();
+        rBody = GetComponent<Rigidbody>();
+        initialPosition = transform.position;
+        initialRotation = transform.rotation;
+        
+        rBody.isKinematic = true;
+        
         turnManager = FindFirstObjectByType<GameTurnManager>();
     }
 
-    private void Initialize()
+    public void ResetDice()
     {
-        rBody = GetComponent<Rigidbody>();
-        rBody.isKinematic = true;
-        position = transform.position;
-        transform.rotation = new Quaternion(
-            Random.Range(0, 360), Random.Range(0, 360), Random.Range(0, 360), 0);
+        StopAllCoroutines();
+        StartCoroutine(ResetDiceCoroutine());
     }
 
-    public void ResetDice()
-{
-    StopAllCoroutines();
-    StartCoroutine(ResetDiceDelay());
-}
+    private IEnumerator ResetDiceCoroutine()
+    {
+        // Izslēdz colliders
+        foreach (var col in GetComponentsInChildren<Collider>())
+            col.enabled = false;
 
-private IEnumerator ResetDiceDelay()
-{
-    // 1. Izslēdz visus pusīšu colliders
-    foreach (var col in GetComponentsInChildren<Collider>())
-        col.enabled = false;
+        // Apstādina fiziku PIRMS kinematic
+        if (!rBody.isKinematic)
+        {
+            rBody.linearVelocity = Vector3.zero;
+            rBody.angularVelocity = Vector3.zero;
+        }
 
-    // 2. Rest sākuma pozīciju
-    transform.position = position;
-    transform.rotation = Random.rotation;
+        // Tad uzstāda kinematic
+        rBody.isKinematic = true;
 
-    rBody.isKinematic = true;
-    isLanded = false;
-    diceFaceNum = "?";
-    firstThrow = false;
-    hasRolledThisTurn = false;
+        // Reset pozīciju un rotāciju
+        transform.position = initialPosition;
+        transform.rotation = initialRotation;
 
-    yield return new WaitForSeconds(0.3f);
+        // Reset statusu
+        isLanded = false;
+        diceFaceNum = "?";
+        firstThrow = false;
+        hasRolledThisTurn = false;
 
-    // 3. Ieslēdz colliders atpakaļ
-    foreach (var col in GetComponentsInChildren<Collider>())
-        col.enabled = true;
-}
+        yield return new WaitForSeconds(0.3f);
 
+        // Ieslēdz colliders
+        foreach (var col in GetComponentsInChildren<Collider>())
+            col.enabled = true;
 
-    // public void ResetDice()
-    // {
-    //     transform.position = position;
-    //     firstThrow = false;
-    //     isLanded = false;
-    //     hasRolledThisTurn = false; // Atļauj jaunu metienu
-    //     diceFaceNum = "?";
-    //     Initialize();
-    //     Debug.Log("🔄 Dice reset");
-    // }
+        Debug.Log("🔄 Dice reset");
+    }
 
     private void RollDice()
-{
-    if (rBody == null) return;
+    {
+        if (rBody == null) return;
 
-    // Aktivizē fiziku
-    rBody.isKinematic = false;
+        // Reset landed status
+        isLanded = false;
+        diceFaceNum = "?";
 
-    // Random spēks
-    float forceX = Random.Range(-maxRandForcVal, maxRandForcVal);
-    float forceY = startRollingForce;
-    float forceZ = Random.Range(-maxRandForcVal, maxRandForcVal);
+        // Aktivizē fiziku
+        rBody.isKinematic = false;
 
-    Vector3 force = new Vector3(forceX, forceY, forceZ);
+        // Upward un forward force
+        Vector3 throwDirection = (Vector3.up * 2f + Vector3.forward * 0.5f).normalized;
+        rBody.AddForce(throwDirection * throwForce);
 
-    // Uzliek spēku un rotāciju
-    rBody.AddForce(force);
-    rBody.AddTorque(
-        Random.Range(200, 600),
-        Random.Range(200, 600),
-        Random.Range(200, 600)
-    );
+        // Random rotācijas force
+        Vector3 randomTorque = new Vector3(
+            Random.Range(-torqueForce, torqueForce),
+            Random.Range(-torqueForce, torqueForce),
+            Random.Range(-torqueForce, torqueForce)
+        );
+        rBody.AddTorque(randomTorque);
 
-    // Atzīmē ka šajā gājienā jau tika mests
-    hasRolledThisTurn = true;
-
-    Debug.Log("🎲 Dice rolled!");
-}
-
+        hasRolledThisTurn = true;
+        Debug.Log("🎲 Dice rolled!");
+    }
 
     void Update()
     {
-        if (rBody == null) return;
+        if (rBody == null || turnManager == null) return;
         
-        // Pārbauda vai ir tavs gājiens
+        // Pārbauda vai ir main player gājiens
         bool isMyTurn = false;
-        if (turnManager != null)
+        PlayerMovement[] players = FindObjectsOfType<PlayerMovement>();
+        foreach (var player in players)
         {
-            // Atrod vai pašreizējais spēlētājs ir main player
-            PlayerMovement[] players = FindObjectsOfType<PlayerMovement>();
-            foreach (var player in players)
+            if (player.playerIndex == turnManager.currentPlayerIndex && player.isMainPlayer)
             {
-                if (player.playerIndex == turnManager.currentPlayerIndex && player.isMainPlayer)
-                {
-                    isMyTurn = true;
-                    break;
-                }
+                isMyTurn = true;
+                break;
             }
         }
         
-        // Ļauj mest tikai ja:
-        // 1. Ir tavs gājiens
-        // 2. Vēl nav mestis šajā gājienā
-        // 3. Dice nav landed
-        if (isMyTurn && !hasRolledThisTurn)
+        // Ļauj mest tikai ja ir tavs gājiens un vēl nav metis
+        if (isMyTurn && !hasRolledThisTurn && !isLanded)
         {
             if (Input.GetMouseButtonDown(0))
             {
@@ -136,15 +124,8 @@ private IEnumerator ResetDiceDelay()
                 {
                     if (hit.collider != null && hit.collider.gameObject == this.gameObject)
                     {
-                        if (!firstThrow)
-                        {
-                            firstThrow = true;
-                        }
-                        
-                        if (!isLanded)
-                        {
-                            RollDice();
-                        }
+                        firstThrow = true;
+                        RollDice();
                     }
                 }
             }

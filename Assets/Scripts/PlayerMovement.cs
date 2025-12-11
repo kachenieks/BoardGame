@@ -36,15 +36,23 @@ public class PlayerMovement : MonoBehaviour
     }
 
     void FindAllFloorTiles()
-{
-    pathTiles = GameObject.FindGameObjectsWithTag("Tile")
-        .OrderBy(o => ExtractFloorNumber(o.name))
-        .Select(o => o.transform)
-        .ToList();
+    {
+        // Atrod visus objektus ar Tag "Tile"
+        GameObject[] tileObjects = GameObject.FindGameObjectsWithTag("Tile");
+        
+        // Sakārto pēc nosaukuma numura
+        pathTiles = tileObjects
+            .OrderBy(o => ExtractFloorNumber(o.name))
+            .Select(o => o.transform)
+            .ToList();
 
-    Debug.Log($"Player {playerIndex}: Found {pathTiles.Count} tiles");
-}
-
+        Debug.Log($"🎯 Player {playerIndex}: Atrasti {pathTiles.Count} tiles");
+        
+        if (pathTiles.Count > 0)
+        {
+            Debug.Log($"   Pirmais: {pathTiles[0].name}, Pēdējais: {pathTiles[pathTiles.Count - 1].name}");
+        }
+    }
 
     private int ExtractFloorNumber(string name)
     {
@@ -57,16 +65,10 @@ public class PlayerMovement : MonoBehaviour
     }
 
     void Start()
-{
-    if (pathTiles.Count > 0)
     {
-        Vector3 startPos = pathTiles[0].position;
-        startPos += new Vector3(playerIndex * 0.05f, 0, playerIndex * 0.03f);
-
-        transform.position = startPos;
+        // Spēlētājs jau ir pareizā pozīcijā no PlayerScript
+        // Neko nemaina šeit
     }
-}
-
 
     void Update()
     {
@@ -180,9 +182,9 @@ public class PlayerMovement : MonoBehaviour
     {
         Vector3 startPos = transform.position;
         Vector3 endPos = targetTile.position;
-        endPos.y = targetTile.position.y + 0.5f;
-        // Saglabā spēlētāja nobīdi
-        endPos += new Vector3(playerIndex * 0.15f, 0, playerIndex * 0.08f);
+        
+        // Saglabā spēlētāja nobīdi (lai neredzētu cauri)
+        endPos += new Vector3(playerIndex * 0.12f, 0, playerIndex * 0.06f);
 
         float elapsedTime = 0f;
         float moveDuration = 1f / moveSpeed;
@@ -193,6 +195,8 @@ public class PlayerMovement : MonoBehaviour
             float t = elapsedTime / moveDuration;
 
             Vector3 currentPos = Vector3.Lerp(startPos, endPos, t);
+            
+            // Lēciena efekts
             float jumpOffset = jumpHeight * Mathf.Sin(t * Mathf.PI);
             currentPos.y += jumpOffset;
 
@@ -218,8 +222,7 @@ public class PlayerMovement : MonoBehaviour
         if (pathTiles.Count > 0)
         {
             Vector3 startPos = pathTiles[0].position;
-            startPos.y += 0.5f;
-            startPos += new Vector3(playerIndex * 0.15f, 0, playerIndex * 0.08f);
+            startPos += new Vector3(playerIndex * 0.12f, 0, playerIndex * 0.06f);
             transform.position = startPos;
         }
     }

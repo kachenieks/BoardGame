@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -19,6 +20,15 @@ public class GameTurnManager : MonoBehaviour
 
     void Start()
     {
+        // Pagaida lai visi spēlētāji tiktu izveidoti
+        StartCoroutine(InitializeGame());
+    }
+
+    IEnumerator InitializeGame()
+    {
+        // Pagaida 0.5s lai PlayerScript izveido spēlētājus
+        yield return new WaitForSeconds(0.5f);
+        
         // Atrod visus spēlētājus
         FindAllPlayers();
         
@@ -26,6 +36,10 @@ public class GameTurnManager : MonoBehaviour
         if (allPlayers.Count > 0)
         {
             StartTurn(0);
+        }
+        else
+        {
+            Debug.LogError("❌ Nav atrasts neviens spēlētājs!");
         }
     }
 
@@ -36,12 +50,18 @@ public class GameTurnManager : MonoBehaviour
         // Sakārto pēc playerIndex
         allPlayers = foundPlayers.OrderBy(p => p.playerIndex).ToList();
         
-        Debug.Log($"Atrasti {allPlayers.Count} spēlētāji");
+        Debug.Log($"✅ GameTurnManager atrasti {allPlayers.Count} spēlētāji");
+        
+        foreach (var player in allPlayers)
+        {
+            Debug.Log($"   - Player {player.playerIndex}, isMain: {player.isMainPlayer}");
+        }
     }
 
     void StartTurn(int playerIndex)
     {
         if (gameEnded) return;
+        if (allPlayers.Count == 0) return;
         
         currentPlayerIndex = playerIndex;
         
@@ -65,10 +85,11 @@ public class GameTurnManager : MonoBehaviour
             {
                 UpdateTurnUI($"AI Spēlētājs {playerIndex} gājiens...");
                 
-                // Paslēp kauliņu AI gājiena laikā
-                // Dice vienmēr paliek ieslēgts
-diceObject.SetActive(true);
-
+                // Dice paliek redzams
+                if (diceObject != null)
+                {
+                    diceObject.SetActive(true);
+                }
             }
         }
     }
@@ -76,6 +97,7 @@ diceObject.SetActive(true);
     public void NextTurn()
     {
         if (gameEnded) return;
+        if (allPlayers.Count == 0) return;
         
         // Atrod nākamo spēlētāju kas vēl nav beidzis
         int nextPlayer = currentPlayerIndex;

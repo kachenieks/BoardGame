@@ -2643,8 +2643,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 074848ff8be49074d8ba06d38a286dbd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  maxRandForcVal: 3000
-  startRollingForce: 1000
+  throwForce: 500
+  torqueForce: 300
   diceFaceNum: 
   isLanded: 0
   firstThrow: 0
@@ -4003,6 +4003,11 @@ SceneRoots:
   - {fileID: 459214901}
   - {fileID: 2135918417}
   - {fileID: 431666522}
+  - {fileID: 1374844587}
+  - {fileID: 1330528805}
+  - {fileID: 569649350}
+  - {fileID: 562779950}
+  - {fileID: 1670265498}
   - {fileID: 1689186112}
   - {fileID: 1607955569}
   - {fileID: 1485292174}
@@ -4010,21 +4015,16 @@ SceneRoots:
   - {fileID: 194382473}
   - {fileID: 499335813}
   - {fileID: 1643686269}
-  - {fileID: 978957582}
-  - {fileID: 16971820}
+  - {fileID: 1584137124}
+  - {fileID: 1591653047}
+  - {fileID: 630701157}
   - {fileID: 1543768183}
+  - {fileID: 16971820}
+  - {fileID: 978957582}
   - {fileID: 2117384649}
   - {fileID: 1967768895}
   - {fileID: 974977275}
   - {fileID: 577772612}
   - {fileID: 152067291}
   - {fileID: 937367719}
-  - {fileID: 630701157}
-  - {fileID: 1591653047}
-  - {fileID: 1584137124}
-  - {fileID: 1670265498}
-  - {fileID: 562779950}
-  - {fileID: 569649350}
-  - {fileID: 1330528805}
-  - {fileID: 1374844587}
   - {fileID: 1072295668}
