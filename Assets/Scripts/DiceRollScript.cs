@@ -1,102 +1,151 @@
 using UnityEngine;
+using System.Collections;
 
 public class DiceRollScript : MonoBehaviour
 {
-    Rigidbody rBody;
-    Vector3 position, startPosition;
-    [SerializeField] private float maxRandForcVal = 500f;
-    [SerializeField] private float startRollingForce = 1200f;
-    float forceX, forceY, forceZ;
-    public string diceFaceNum = "?";
+    [Header("Dice Status")]
+    public string diceFaceNum = "1";
     public bool isLanded = false;
-    public bool firstThrow = false;
-    
+
+    // ✅ ŠIS TEV TRŪKA
+    public bool isRolling = false;
+
+    private Rigidbody rb;
+    private Vector3 startPos;
+    private Quaternion startRot;
+
     private GameTurnManager turnManager;
-    
+
     void Awake()
     {
-        startPosition = transform.position;
-        Initialize();
-        turnManager = FindFirstObjectByType<GameTurnManager>();
+        rb = GetComponent<Rigidbody>();
+        startPos = transform.position;
+        startRot = transform.rotation;
+
+        Debug.Log("✅ DiceRollScript inicializēts");
     }
 
-    private void Initialize()
+    void Start()
     {
-        rBody = GetComponent<Rigidbody>();
-        rBody.isKinematic = true;
-        position = transform.position;
-        transform.rotation = new Quaternion(
-            Random.Range(0, 360), Random.Range(0, 360), Random.Range(0, 360), 0);
+        FindTurnManager();
     }
 
-    private void RollDice()
+    void FindTurnManager()
     {
-        // Reset landed pirms metiena
+        turnManager = GameTurnManager.Instance;
+
+        if (turnManager != null)
+        {
+            Debug.Log("✅ DiceRollScript atrada GameTurnManager!");
+        }
+        else
+        {
+            // ja Start() brīdī vēl nav Instance, pamēģināsim vēlreiz pēc brīža
+            StartCoroutine(TryFindTurnManagerLater());
+        }
+    }
+
+    IEnumerator TryFindTurnManagerLater()
+    {
+        yield return null;
+        yield return null;
+
+        turnManager = GameTurnManager.Instance;
+
+        if (turnManager != null)
+            Debug.Log("✅ DiceRollScript atrada GameTurnManager (vēlāk)!");
+        else
+            Debug.LogError("❌ DiceRollScript: GameTurnManager joprojām nav atrasts!");
+    }
+
+    void OnMouseDown()
+    {
+        // Nedrīkst mest, ja nav TurnManager
+        if (turnManager == null) return;
+
+        // ✅ Met tikai cilvēks savā gājienā
+        if (!turnManager.IsCurrentPlayerHuman())
+        {
+            Debug.Log("⛔ Nav tavs gājiens – kauliņu mest nevar");
+            return;
+        }
+
+        // Ja jau met
+        if (isRolling) return;
+
+        StartCoroutine(RollDice());
+    }
+
+    IEnumerator RollDice()
+    {
+        isRolling = true;
         isLanded = false;
-        
-        rBody.isKinematic = false;
-        forceX = Random.Range(0, maxRandForcVal);
-        forceY = Random.Range(0, maxRandForcVal);
-        forceZ = Random.Range(0, maxRandForcVal);
-        rBody.AddForce(Vector3.up * Random.Range(800, startRollingForce));
-        rBody.AddTorque(forceX, forceY, forceZ);
-        
-        Debug.Log("🎲 Dice rolled!");
+        diceFaceNum = "0";
+
+        // reset physics
+        rb.isKinematic = false;
+        rb.linearVelocity = Vector3.zero;
+        rb.angularVelocity = Vector3.zero;
+
+        // atgriež sākuma pozīcijā (ja vajag)
+        transform.position = startPos;
+        transform.rotation = startRot;
+
+        yield return null;
+
+        // uzmet spēku un griešanu
+        float upForce = Random.Range(6f, 10f);
+        float sideForceX = Random.Range(-2f, 2f);
+        float sideForceZ = Random.Range(-2f, 2f);
+
+        rb.AddForce(new Vector3(sideForceX, upForce, sideForceZ), ForceMode.Impulse);
+        rb.AddTorque(Random.insideUnitSphere * Random.Range(10f, 25f), ForceMode.Impulse);
+
+        // gaida līdz SideDetectScript uzstāda isLanded=true un diceFaceNum
+        float timeout = 6f;
+        float t = 0f;
+
+        while (!isLanded && t < timeout)
+        {
+            t += Time.deltaTime;
+            yield return null;
+        }
+
+        // Ja kaut kas noiet greizi – atļaujam turpināt spēli
+        if (!isLanded)
+        {
+            Debug.LogWarning("⚠️ Dice timeout – neizdevās noteikt skaitli. Lietosim 1.");
+            diceFaceNum = "1";
+            isLanded = true;
+        }
+
+        Debug.Log($"🎲 Kauliņš uzkrita: {diceFaceNum}");
+
+        // kauliņš pabeidza mešanu
+        isRolling = false;
+    }
+
+    // Šo sauc SideDetectScript, kad konkrētā puse ir apakšā
+    public void SetDiceFace(int faceNumber)
+    {
+        diceFaceNum = faceNumber.ToString();
+        isLanded = true;
     }
 
     public void ResetDice()
     {
-        transform.position = startPosition;
-        firstThrow = false;
         isLanded = false;
-        diceFaceNum = "?";
-        Initialize();
-        
-        Debug.Log("🔄 Dice reset!");
-    }
+        isRolling = false;
+        diceFaceNum = "0";
 
-    void Update()
-    {
-        if (rBody == null) return;
-
-        // Pārbauda vai ir main player gājiens
-        bool isMyTurn = false;
-        if (turnManager != null)
+        if (rb != null)
         {
-            PlayerMovement[] players = FindObjectsByType<PlayerMovement>(FindObjectsSortMode.None);
-            foreach (var player in players)
-            {
-                if (player.playerIndex == turnManager.currentPlayerIndex && 
-                    player.isMainPlayer)
-                {
-                    isMyTurn = true;
-                    break;
-                }
-            }
+            rb.linearVelocity = Vector3.zero;
+            rb.angularVelocity = Vector3.zero;
+            rb.isKinematic = true;
         }
 
-        // TAVS ORIGINAL CODE - bet TIKAI ja ir tavs gājiens!
-        if (isMyTurn)
-        {
-            // Var mest ja: (isLanded = true) VAI (vēl nav mests)
-            if (Input.GetMouseButtonDown(0) && (isLanded || !firstThrow))
-            {
-                Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
-                RaycastHit hit;
-
-                if (Physics.Raycast(ray, out hit))
-                {
-                    if (hit.collider != null && 
-                        hit.collider.gameObject == this.gameObject)
-                    {
-                        if (!firstThrow)
-                        {
-                            firstThrow = true;
-                        }
-                        RollDice();
-                    }
-                }
-            }
-        }
+        transform.position = startPos;
+        transform.rotation = startRot;
     }
 }

@@ -5,150 +5,121 @@ using System.Linq;
 
 public class PlayerMovement : MonoBehaviour
 {
-    [Header("Kustības iestatījumi")]
     public float moveSpeed = 3f;
     public float jumpHeight = 0.5f;
 
-    [Header("Spēlētāja info")]
-    public bool isMainPlayer = false;
-    public int playerIndex = 0;
-    
-    [Header("Auto-atrasto tiles")]
-    [SerializeField] private List<Transform> pathTiles = new List<Transform>();
+    public bool isMainPlayer;
+    public int playerIndex;
+
+    private List<Transform> pathTiles = new();
     private int currentTileIndex = 0;
+
     private bool isMoving = false;
     private bool hasPlayedThisTurn = false;
 
-    private DiceRollScript diceRollScript;
+    private DiceRollScript dice;
     private GameTurnManager turnManager;
 
     void Awake()
     {
         FindAllFloorTiles();
-        diceRollScript = FindFirstObjectByType<DiceRollScript>();
-        turnManager = FindFirstObjectByType<GameTurnManager>();
-        
-        if (diceRollScript == null)
-        {
-            Debug.LogWarning("Nav atrasts DiceRollScript!");
-        }
-    }
-
-    void FindAllFloorTiles()
-    {
-        GameObject[] tileObjects = GameObject.FindGameObjectsWithTag("Tile");
-        
-        pathTiles = tileObjects
-            .OrderBy(o => ExtractFloorNumber(o.name))
-            .Select(o => o.transform)
-            .ToList();
-
-        Debug.Log($"🎯 Player {playerIndex}: Atrasti {pathTiles.Count} tiles");
-        
-        if (pathTiles.Count > 0)
-        {
-            Debug.Log($"   Pirmais: {pathTiles[0].name}, Pēdējais: {pathTiles[pathTiles.Count - 1].name}");
-        }
-    }
-
-    private int ExtractFloorNumber(string name)
-    {
-        string numberPart = new string(name.Where(char.IsDigit).ToArray());
-        if (int.TryParse(numberPart, out int number))
-        {
-            return number;
-        }
-        return 0;
     }
 
     void Start()
     {
-        // Spēlētājs jau ir pareizā pozīcijā no PlayerScript
+        // Meklē managers Start() metodē, kad viss ir inicializēts
+        // dice = FindFirstObjectByType<DiceRollScript>();
+        // turnManager = FindFirstObjectByType<GameTurnManager>();
+        
+        // if (dice == null)
+        // {
+        //     Debug.LogWarning($"⚠️ Player {playerIndex}: Nav atrasts DiceRollScript!");
+        // }
+        
+        // if (turnManager == null)
+        // {
+        //     Debug.LogWarning($"⚠️ Player {playerIndex}: Nav atrasts GameTurnManager!");
+        // }
+        // else
+        // {
+        //     Debug.Log($"✅ Player {playerIndex}: Savienots ar GameTurnManager");
+        // }
     }
 
     void Update()
     {
-        if (diceRollScript == null || turnManager == null) return;
-
-        // Pārbauda vai ir šī spēlētāja gājiens
+        if (turnManager == null) return;
         if (turnManager.currentPlayerIndex != playerIndex) return;
-        if (hasPlayedThisTurn) return;
+        if (hasPlayedThisTurn || isMoving) return;
 
-        // Ja ir galvenais spēlētājs - gaida uz kauliņa metienu
         if (isMainPlayer)
         {
-            // Kad dice ir landed - apstrādā rezultātu
-            if (diceRollScript.isLanded && !isMoving)
+            // Cilvēka spēlētājs gaida kauliņa metienu
+            if (dice != null && dice.isLanded && dice.diceFaceNum != "?")
             {
-                int rolledNumber = GetDiceNumber(diceRollScript.diceFaceNum);
-                if (rolledNumber > 0)
-                {
-                    Debug.Log($"🎲 Spēlētājs {playerIndex} uzmeta: {rolledNumber}");
-                    hasPlayedThisTurn = true;
-                    StartCoroutine(MovePlayerAndNextTurn(rolledNumber));
-                }
+                Debug.Log($"👤 Spēlētājs {playerIndex} sāk kustēties ar {dice.diceFaceNum}");
+                
+                int steps = int.Parse(dice.diceFaceNum);
+                hasPlayedThisTurn = true;
+                StartCoroutine(MoveAndNext(steps));
             }
         }
-        // Ja ir AI spēlētājs - automātiski met kauliņu
         else
         {
-            if (!hasPlayedThisTurn && !isMoving)
+            // AI spēlētājs met automātiski
+            if (!hasPlayedThisTurn)
             {
-                StartCoroutine(AIRollAndMove());
+                hasPlayedThisTurn = true;
+                StartCoroutine(AIRoll());
             }
         }
     }
 
-    private IEnumerator AIRollAndMove()
+    IEnumerator AIRoll()
     {
-        hasPlayedThisTurn = true;
+        yield return new WaitForSeconds(0.7f);
+        int roll = Random.Range(1, 7);
+        Debug.Log($"🤖 AI {playerIndex} uzmeta {roll}");
+        yield return MoveSteps(roll);
         
-        yield return new WaitForSeconds(0.8f);
+        yield return new WaitForSeconds(0.3f);
         
-        int randomRoll = Random.Range(1, 7);
-        Debug.Log($"🤖 AI Spēlētājs {playerIndex} uzmeta: {randomRoll}");
-        
-        yield return StartCoroutine(MovePlayerSteps(randomRoll));
-        
+        if (turnManager != null)
+        {
+            turnManager.NextTurn();
+        }
+    }
+
+    IEnumerator MoveAndNext(int steps)
+    {
+        yield return MoveSteps(steps);
+
+        // Reset kauliņa statusu
+        if (dice != null)
+        {
+            dice.ResetDice();
+        }
+
         yield return new WaitForSeconds(0.5f);
-        turnManager.NextTurn();
-    }
-
-    private IEnumerator MovePlayerAndNextTurn(int steps)
-    {
-        yield return StartCoroutine(MovePlayerSteps(steps));
         
-        // Reset dice PIRMS nākamā gājiena
-        if (diceRollScript != null)
+        if (turnManager != null)
         {
-            diceRollScript.ResetDice();
-            yield return new WaitForSeconds(0.5f); // Gaida lai dice reset
+            turnManager.NextTurn();
         }
-        
-        // Pāriet uz nākamo spēlētāju
-        turnManager.NextTurn();
     }
 
-    private int GetDiceNumber(string diceFace)
-    {
-        if (int.TryParse(diceFace, out int number))
-        {
-            return number;
-        }
-        return 0;
-    }
-
-    private IEnumerator MovePlayerSteps(int steps)
+    IEnumerator MoveSteps(int steps)
     {
         isMoving = true;
 
         for (int i = 0; i < steps; i++)
         {
-            int nextTileIndex = currentTileIndex + 1;
-            
-            if (nextTileIndex >= pathTiles.Count)
+            int next = currentTileIndex + 1;
+            if (next >= pathTiles.Count)
             {
-                Debug.Log($"🎉 Spēlētājs {playerIndex} sasniedza mērķi!");
+                // Spēlētājs ir sasniedzis finišu
+                Debug.Log($"🏁 Spēlētājs {playerIndex} sasniedza finišu!");
+                
                 if (turnManager != null)
                 {
                     turnManager.PlayerFinished(playerIndex);
@@ -156,55 +127,85 @@ public class PlayerMovement : MonoBehaviour
                 break;
             }
 
-            yield return StartCoroutine(MoveToTile(pathTiles[nextTileIndex]));
-            currentTileIndex = nextTileIndex;
-
-            yield return new WaitForSeconds(0.15f);
+            yield return MoveTo(pathTiles[next]);
+            currentTileIndex = next;
         }
 
         isMoving = false;
     }
 
-    private IEnumerator MoveToTile(Transform targetTile)
+    IEnumerator MoveTo(Transform tile)
     {
-        Vector3 startPos = transform.position;
-        Vector3 endPos = targetTile.position;
-        endPos += new Vector3(playerIndex * 0.12f, 0, playerIndex * 0.06f);
+        Vector3 start = transform.position;
+        Vector3 end = tile.position + new Vector3(playerIndex * 0.12f, 0, playerIndex * 0.06f);
 
-        float elapsedTime = 0f;
-        float moveDuration = 1f / moveSpeed;
-
-        while (elapsedTime < moveDuration)
+        float t = 0;
+        while (t < 1)
         {
-            elapsedTime += Time.deltaTime;
-            float t = elapsedTime / moveDuration;
-
-            Vector3 currentPos = Vector3.Lerp(startPos, endPos, t);
-            float jumpOffset = jumpHeight * Mathf.Sin(t * Mathf.PI);
-            currentPos.y += jumpOffset;
-
-            transform.position = currentPos;
+            t += Time.deltaTime * moveSpeed;
+            Vector3 pos = Vector3.Lerp(start, end, t);
+            pos.y += jumpHeight * Mathf.Sin(t * Mathf.PI);
+            transform.position = pos;
             yield return null;
         }
+        transform.position = end;
+    }
 
-        transform.position = endPos;
+    void FindAllFloorTiles()
+    {
+        GameObject[] tiles = GameObject.FindGameObjectsWithTag("Tile");
+        
+        if (tiles == null || tiles.Length == 0)
+        {
+            Debug.LogError($"❌ Player {playerIndex}: Nav atrasts neviens Tile!");
+            return;
+        }
+        
+        pathTiles = tiles
+            .OrderBy(o => ExtractFloorNumber(o.name))
+            .Select(o => o.transform)
+            .ToList();
+            
+        Debug.Log($"✅ Player {playerIndex}: Atrasti {pathTiles.Count} tile");
+    }
+
+    int ExtractFloorNumber(string name)
+    {
+        string n = new string(name.Where(char.IsDigit).ToArray());
+        return int.TryParse(n, out int i) ? i : 0;
     }
 
     public void ResetForNewTurn()
     {
         hasPlayedThisTurn = false;
+        Debug.Log($"🔄 Player {playerIndex} reset gājienam (isMain: {isMainPlayer})");
     }
 
     public void ResetPosition()
     {
         currentTileIndex = 0;
         hasPlayedThisTurn = false;
-        
-        if (pathTiles.Count > 0)
+        isMoving = false;
+
+        if (pathTiles != null && pathTiles.Count > 0)
         {
             Vector3 startPos = pathTiles[0].position;
             startPos += new Vector3(playerIndex * 0.12f, 0, playerIndex * 0.06f);
             transform.position = startPos;
         }
     }
+
+    public void SetTurnManager(GameTurnManager manager)
+{
+    turnManager = manager;
+    Debug.Log($"🔗 Player {playerIndex}: GameTurnManager pieslēgts manuāli");
+}
+
+public void SetDice(DiceRollScript diceScript)
+{
+    dice = diceScript;
+    Debug.Log($"🎲 Player {playerIndex}: Dice pieslēgts manuāli");
+}
+
+
 }

@@ -2,22 +2,52 @@ using UnityEngine;
 
 public class SideDetectScript : MonoBehaviour
 {
-    private DiceRollScript dice;
+    DiceRollScript dice;
+    Rigidbody rb;
 
     void Awake()
     {
-        dice = FindFirstObjectByType<DiceRollScript>();
+        // Mēģina atrast DiceRollScript parent objektā
+        dice = GetComponentInParent<DiceRollScript>();
+        
+        // Ja nav atradis parent objektā, meklē visā scenā
+        if (dice == null)
+        {
+            dice = FindFirstObjectByType<DiceRollScript>();
+        }
+        
+        if (dice == null)
+        {
+            Debug.LogError($"❌ {gameObject.name}: Nevar atrast DiceRollScript!");
+            return;
+        }
+        
+        rb = dice.GetComponent<Rigidbody>();
+        
+        if (rb == null)
+        {
+            Debug.LogError($"❌ {gameObject.name}: Dice objektam nav Rigidbody komponentes!");
+        }
+        else
+        {
+            Debug.Log($"✅ {gameObject.name}: SideDetectScript inicializēts pareizi");
+        }
     }
 
-    private void OnTriggerStay(Collider col)
+    void OnTriggerStay(Collider col)
     {
-        if (dice == null) return;
+        if (dice == null || rb == null) return;
+        if (dice.isLanded) return;
 
-        // ja kauliņš ir lēns (< 0.02f), tad tas ir nolicies
-        if (dice.GetComponent<Rigidbody>().linearVelocity.sqrMagnitude < 0.02f)
+        // Pārbauda vai kauliņš ir apstājies
+        if (rb.linearVelocity.sqrMagnitude < 0.01f &&
+            rb.angularVelocity.sqrMagnitude < 0.01f)
         {
+            dice.diceFaceNum = gameObject.name; // "1".."6"
             dice.isLanded = true;
-            dice.diceFaceNum = col.name;  // nosaukumam JĀBŪT “1”, “2”, “3” utt.
+            rb.isKinematic = true;
+
+            Debug.Log($"🎲 Dice landed on: {dice.diceFaceNum}");
         }
     }
 }
