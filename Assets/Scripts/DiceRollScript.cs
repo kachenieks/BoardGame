@@ -94,12 +94,13 @@ public class DiceRollScript : MonoBehaviour
         yield return null;
 
         // uzmet spēku un griešanu
-        float upForce = Random.Range(6f, 10f);
-        float sideForceX = Random.Range(-2f, 2f);
-        float sideForceZ = Random.Range(-2f, 2f);
+// uzmet spēku un griešanu
+float upForce = Random.Range(10f, 15f);  // ✅ Palielināts no 6-10
+float sideForceX = Random.Range(-4f, 4f);  // ✅ Palielināts no -2,2
+float sideForceZ = Random.Range(-4f, 4f);
 
-        rb.AddForce(new Vector3(sideForceX, upForce, sideForceZ), ForceMode.Impulse);
-        rb.AddTorque(Random.insideUnitSphere * Random.Range(10f, 25f), ForceMode.Impulse);
+rb.AddForce(new Vector3(sideForceX, upForce, sideForceZ), ForceMode.Impulse);
+rb.AddTorque(Random.insideUnitSphere * Random.Range(20f, 40f), ForceMode.Impulse);  // ✅ Palielināts
 
         // gaida līdz SideDetectScript uzstāda isLanded=true un diceFaceNum
         float timeout = 6f;
@@ -133,19 +134,40 @@ public class DiceRollScript : MonoBehaviour
     }
 
     public void ResetDice()
+{
+    isLanded = false;
+    isRolling = false;
+    diceFaceNum = "0";
+
+    if (rb != null && !rb.isKinematic)
     {
-        isLanded = false;
-        isRolling = false;
-        diceFaceNum = "0";
-
-        if (rb != null)
-        {
-            rb.linearVelocity = Vector3.zero;
-            rb.angularVelocity = Vector3.zero;
-            rb.isKinematic = true;
-        }
-
-        transform.position = startPos;
-        transform.rotation = startRot;
+        // Tikai ja nav kinematic
+        rb.linearVelocity = Vector3.zero;
+        rb.angularVelocity = Vector3.zero;
     }
+    
+    if (rb != null)
+    {
+        rb.isKinematic = true;
+    }
+
+    transform.position = startPos;
+    transform.rotation = startRot;
+}
+
+    public void RollDiceFromButton()
+{
+    if (turnManager == null) return;
+
+    if (!turnManager.IsCurrentPlayerHuman())
+    {
+        Debug.Log("⛔ Nav tavs gājiens (Button)");
+        return;
+    }
+
+    if (isRolling) return;
+
+    StartCoroutine(RollDice());
+}
+
 }

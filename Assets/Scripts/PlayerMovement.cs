@@ -27,23 +27,7 @@ public class PlayerMovement : MonoBehaviour
 
     void Start()
     {
-        // Meklē managers Start() metodē, kad viss ir inicializēts
-        // dice = FindFirstObjectByType<DiceRollScript>();
-        // turnManager = FindFirstObjectByType<GameTurnManager>();
-        
-        // if (dice == null)
-        // {
-        //     Debug.LogWarning($"⚠️ Player {playerIndex}: Nav atrasts DiceRollScript!");
-        // }
-        
-        // if (turnManager == null)
-        // {
-        //     Debug.LogWarning($"⚠️ Player {playerIndex}: Nav atrasts GameTurnManager!");
-        // }
-        // else
-        // {
-        //     Debug.Log($"✅ Player {playerIndex}: Savienots ar GameTurnManager");
-        // }
+        Debug.Log($"✅ PlayerMovement.Start(): index={playerIndex}, isMain={isMainPlayer}, name={gameObject.name}");
     }
 
     void Update()
@@ -55,7 +39,7 @@ public class PlayerMovement : MonoBehaviour
         if (isMainPlayer)
         {
             // Cilvēka spēlētājs gaida kauliņa metienu
-            if (dice != null && dice.isLanded && dice.diceFaceNum != "?")
+            if (dice != null && dice.isLanded && dice.diceFaceNum != "0" && dice.diceFaceNum != "?")
             {
                 Debug.Log($"👤 Spēlētājs {playerIndex} sāk kustēties ar {dice.diceFaceNum}");
                 
@@ -82,6 +66,9 @@ public class PlayerMovement : MonoBehaviour
         Debug.Log($"🤖 AI {playerIndex} uzmeta {roll}");
         yield return MoveSteps(roll);
         
+        // ✅ PĀRBAUDI KĀPNES/ČŪSKAS pēc AI kustības
+        yield return CheckLadders();
+        
         yield return new WaitForSeconds(0.3f);
         
         if (turnManager != null)
@@ -94,17 +81,33 @@ public class PlayerMovement : MonoBehaviour
     {
         yield return MoveSteps(steps);
 
-        // Reset kauliņa statusu
-        if (dice != null)
-        {
-            dice.ResetDice();
-        }
+        // ✅ PĀRBAUDI KĀPNES/ČŪSKAS pēc cilvēka kustības
+        yield return CheckLadders();
 
         yield return new WaitForSeconds(0.5f);
         
         if (turnManager != null)
         {
             turnManager.NextTurn();
+        }
+    }
+
+    IEnumerator CheckLadders()
+    {
+        int destinationTile = LadderSystem.GetDestinationTile(currentTileIndex);
+        
+        if (destinationTile != currentTileIndex)
+        {
+            // Ir kāpnes vai čūska!
+            yield return new WaitForSeconds(0.3f);
+            
+            // Pārvietojies uz jauno tile
+            currentTileIndex = destinationTile;
+            
+            if (destinationTile < pathTiles.Count)
+            {
+                yield return MoveTo(pathTiles[destinationTile]);
+            }
         }
     }
 
@@ -157,7 +160,7 @@ public class PlayerMovement : MonoBehaviour
         
         if (tiles == null || tiles.Length == 0)
         {
-            Debug.LogError($"❌ Player {playerIndex}: Nav atrasts neviens Tile!");
+            Debug.LogError($"❌ Nav atrasts neviens Tile!");
             return;
         }
         
@@ -166,7 +169,7 @@ public class PlayerMovement : MonoBehaviour
             .Select(o => o.transform)
             .ToList();
             
-        Debug.Log($"✅ Player {playerIndex}: Atrasti {pathTiles.Count} tile");
+        Debug.Log($"✅ Atrasti {pathTiles.Count} tile (pieejami spēlei)");
     }
 
     int ExtractFloorNumber(string name)
@@ -196,16 +199,14 @@ public class PlayerMovement : MonoBehaviour
     }
 
     public void SetTurnManager(GameTurnManager manager)
-{
-    turnManager = manager;
-    Debug.Log($"🔗 Player {playerIndex}: GameTurnManager pieslēgts manuāli");
-}
+    {
+        turnManager = manager;
+        Debug.Log($"🔗 Player {playerIndex}: GameTurnManager pieslēgts manuāli");
+    }
 
-public void SetDice(DiceRollScript diceScript)
-{
-    dice = diceScript;
-    Debug.Log($"🎲 Player {playerIndex}: Dice pieslēgts manuāli");
-}
-
-
+    public void SetDice(DiceRollScript diceScript)
+    {
+        dice = diceScript;
+        Debug.Log($"🎲 Player {playerIndex}: Dice pieslēgts manuāli");
+    }
 }

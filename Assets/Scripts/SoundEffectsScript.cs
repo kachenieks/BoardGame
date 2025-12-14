@@ -3,7 +3,21 @@ using UnityEngine;
 public class SoundEffectsScript : MonoBehaviour
 {
     public AudioClip[] soundEffects;
-    [SerializeField] private AudioSource audioSource;
+
+    private AudioSource audioSource;
+
+    void Start()
+    {
+        // 🔗 Paņem SFX AudioSource no SettingsManager
+        if (SettingsManager.Instance != null)
+        {
+            audioSource = SettingsManager.Instance.sfxSource;
+        }
+        else
+        {
+            Debug.LogError("❌ SettingsManager nav atrasts!");
+        }
+    }
 
     public void Hover()
     {

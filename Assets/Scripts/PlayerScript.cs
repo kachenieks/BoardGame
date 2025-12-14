@@ -22,6 +22,31 @@ public class PlayerScript : MonoBehaviour
         // Gaida lai vecais spēlētājs tiktu izdzēsts
         yield return new WaitForSeconds(0.2f);
 
+        // ✅ JAUNS: Gaida līdz GameTurnManager.Instance ir pieejams
+        int waitAttempts = 0;
+        while (GameTurnManager.Instance == null && waitAttempts < 100)
+        {
+            if (waitAttempts % 10 == 0)
+            {
+                Debug.Log($"⏳ [{waitAttempts}] Gaida GameTurnManager.Instance...");
+            }
+            yield return new WaitForSeconds(0.05f);
+            waitAttempts++;
+        }
+
+        if (GameTurnManager.Instance == null)
+        {
+            Debug.LogError("❌ KRITISKA KĻŪDA: GameTurnManager.Instance nav atrasts pēc 5 sekundēm!");
+            Debug.LogError("   Pārbaudi:");
+            Debug.LogError("   1. Vai Scene 0 ir GameManager objekts?");
+            Debug.LogError("   2. Vai tam ir GameTurnManager skripts?");
+            Debug.LogError("   3. Vai skripts ir enabled?");
+            Debug.LogError("   4. Vai Scene 0 tiek ielādēta pirms Scene 1?");
+            yield break;
+        }
+
+        Debug.Log("✅ GameTurnManager.Instance atrasts! Turpina spēlētāju izveidi...");
+
         int playerCount = PlayerPrefs.GetInt("PlayerCount", 2);
         int characterIndex = PlayerPrefs.GetInt("SelectedCharacter", 0);
         string playerName = PlayerPrefs.GetString("PlayerName", "Player");
@@ -93,6 +118,7 @@ public class PlayerScript : MonoBehaviour
         PlayerMovement mainMovement = mainCharacter.GetComponent<PlayerMovement>();
         if (mainMovement != null)
         {
+            // ✅ SVARĪGI: Iestatām PIRMS Awake() izsaucas
             mainMovement.isMainPlayer = true;
             mainMovement.playerIndex = 0;
             Debug.Log($"✅ Main Player: '{playerName}', index=0, isMainPlayer=TRUE");
@@ -101,6 +127,9 @@ public class PlayerScript : MonoBehaviour
         {
             Debug.LogError("❌ MainPlayer prefabam nav PlayerMovement komponente!");
         }
+        
+        // ✅ Force Awake lai pārliecinātos ka viss ir iestatīts
+        yield return null;
 
         // ===== IZVEIDO AI SPĒLĒTĀJUS =====
         for (int i = 1; i < playerCount; i++)
@@ -147,9 +176,7 @@ public class PlayerScript : MonoBehaviour
 
         Debug.Log($"🎮 ✅✅✅ PABEIGTS: Izveidoti {playerCount} spēlētāji! ✅✅✅");
 
-        // ===== DROŠI PAZIŅO TURNMANAGER (NEVIS FindFirstObjectByType) =====
-        // Pagaidām pāris frame, lai Instance noteikti iestātos
-        yield return null;
+        // ===== DROŠĪ PAZIŅO TURNMANAGER =====
         yield return null;
 
         GameTurnManager turnManager = GameTurnManager.Instance;
@@ -159,12 +186,12 @@ public class PlayerScript : MonoBehaviour
             List<PlayerMovement> players =
                 FindObjectsByType<PlayerMovement>(FindObjectsSortMode.None).ToList();
 
-            Debug.Log("📣 PlayerScript paziņo GameTurnManager: spēlētāji gatavi!");
+            Debug.Log($"📣 PlayerScript paziņo GameTurnManager: {players.Count} spēlētāji gatavi!");
             turnManager.OnPlayersCreated(players);
         }
         else
         {
-            Debug.LogError("❌ PlayerScript: GameTurnManager Instance nav atrasts! (Pārbaudi vai GameManager objektā ir GameTurnManager skripts un tas ir aktīvs)");
+            Debug.LogError("❌ KAUT KAS NOGĀJA GREIZI: Instance pazuda pēc pārbaudes!");
         }
     }
 
@@ -178,6 +205,15 @@ public class PlayerScript : MonoBehaviour
             Debug.Log($"🧹 Izdzēšam {oldPlayers.Length} vecus spēlētājus...");
             foreach (var player in oldPlayers)
             {
+                // ✅ KRITISKI SVARĪGI: NEKAD nedzēs GameManager!
+                if (player.gameObject.name == "GameManager" || 
+                    player.transform.parent?.name == "GameManager")
+                {
+                    Debug.LogWarning($"   ⚠️ IZLAIŽU GameManager vai tā bērnu: {player.gameObject.name}");
+                    continue;
+                }
+                
+                Debug.Log($"   Iznīcinu: {player.gameObject.name}");
                 Destroy(player.gameObject);
             }
         }

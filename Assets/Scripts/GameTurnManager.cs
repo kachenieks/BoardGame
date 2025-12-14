@@ -3,10 +3,11 @@ using TMPro;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using UnityEngine.SceneManagement;
 
 public class GameTurnManager : MonoBehaviour
 {
-    [Header("UI Elements")]
+    [Header("UI Elements (aizpildās automātiski)")]
     public TextMeshProUGUI turnInfoText;
     public GameObject diceObject;
 
@@ -22,32 +23,138 @@ public class GameTurnManager : MonoBehaviour
 
     void Awake()
     {
+        Debug.Log($"🔍 [{Time.frameCount}] GameTurnManager.Awake() sākās");
+        Debug.Log($"   Objekta nosaukums: {gameObject.name}");
+        Debug.Log($"   Scene: {gameObject.scene.name}");
+        Debug.Log($"   Instance pirms pārbaudes: {Instance}");
+        
         if (Instance == null)
         {
             Instance = this;
-            Debug.Log("✅ GameTurnManager Instance iestatīts");
+            DontDestroyOnLoad(gameObject);
+            Debug.Log($"✅ [{Time.frameCount}] GameTurnManager Instance iestatīts (DontDestroyOnLoad)");
+            Debug.Log($"   Instance tagad ir: {Instance.gameObject.name}");
         }
         else
         {
+            Debug.LogWarning($"⚠️ [{Time.frameCount}] Jau eksistē Instance!");
+            Debug.LogWarning($"   Esošais Instance: {Instance.gameObject.name} (scene: {Instance.gameObject.scene.name})");
+            Debug.LogWarning($"   Šis objekts: {gameObject.name} (scene: {gameObject.scene.name})");
+            Debug.LogWarning($"   Iznīcinu šo objektu: {gameObject.name}");
             Destroy(gameObject);
+        }
+    }
+
+    void OnEnable()
+    {
+        Debug.Log($"🟢 [{Time.frameCount}] GameTurnManager.OnEnable(): {gameObject.name}");
+        SceneManager.sceneLoaded += OnSceneLoaded;
+    }
+
+    void OnDisable()
+    {
+        Debug.Log($"🟡 [{Time.frameCount}] GameTurnManager.OnDisable(): {gameObject.name}");
+        SceneManager.sceneLoaded -= OnSceneLoaded;
+    }
+
+    void OnDestroy()
+    {
+        Debug.Log($"💀 [{Time.frameCount}] GameTurnManager.OnDestroy(): {gameObject.name}");
+        if (Instance == this)
+        {
+            Debug.LogError("⚠️ SINGLETON INSTANCE TIEK IZNĪCINĀTS!");
+            Instance = null;
+        }
+    }
+
+    void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+    {
+        Debug.Log($"🎬 Scene ielādēta: {scene.name}, mode: {mode}");
+        Debug.Log($"   GameTurnManager.Instance: {Instance}");
+        Debug.Log($"   Šis objekts: {gameObject.name}");
+        
+        // ✅ Ja ielādēta spēles scēna, atrodam UI elementus
+        if (scene.buildIndex == 1) // Level1 scene
+        {
+            FindUIElements();
         }
     }
 
     void Start()
     {
-        Debug.Log("🎮 GameTurnManager: Start() - gaida spēlētājus...");
-        // Atstājam arī šo – ja kādreiz PlayerScript nepaziņo, TurnManager pats savāks
+        Debug.Log($"🎮 [{Time.frameCount}] GameTurnManager: Start() - gaida spēlētājus...");
+        
+        // Ja jau esam spēles scēnā, atrodam UI
+        if (SceneManager.GetActiveScene().buildIndex == 1)
+        {
+            FindUIElements();
+        }
+        
         StartCoroutine(InitializeGame());
+    }
+
+    // ✅ JAUNA METODE: Atrod UI elementus runtime
+    void FindUIElements()
+    {
+        Debug.Log("🔍 Meklē UI elementus scēnā...");
+        
+        // Atrod Turn Info Text
+        if (turnInfoText == null)
+        {
+            // Meklē pēc nosaukuma vai tipa
+            TextMeshProUGUI[] allTexts = FindObjectsByType<TextMeshProUGUI>(FindObjectsSortMode.None);
+            
+            foreach (var text in allTexts)
+            {
+                // Pieņemam, ka tas ir vienīgais TMP teksts Canvas vai ir konkrēts nosaukums
+                if (text.gameObject.name.Contains("TurnInfo") || 
+                    text.gameObject.name.Contains("Turn") ||
+                    text.gameObject.name.Contains("Info"))
+                {
+                    turnInfoText = text;
+                    Debug.Log($"✅ Atrasts Turn Info Text: {text.gameObject.name}");
+                    break;
+                }
+            }
+            
+            // Ja joprojām nav atrasts, ņem pirmo Canvas text
+            if (turnInfoText == null && allTexts.Length > 0)
+            {
+                turnInfoText = allTexts[0];
+                Debug.Log($"⚠️ Izmanto pirmo TMP tekstu: {turnInfoText.gameObject.name}");
+            }
+        }
+        
+        // Atrod Dice Object
+        if (diceObject == null)
+        {
+            DiceRollScript dice = FindFirstObjectByType<DiceRollScript>();
+            if (dice != null)
+            {
+                diceObject = dice.gameObject;
+                Debug.Log($"✅ Atrasts Dice Object: {diceObject.name}");
+            }
+            else
+            {
+                Debug.LogWarning("⚠️ Nav atrasts DiceRollScript objekts!");
+            }
+        }
     }
 
     IEnumerator InitializeGame()
     {
         int expectedPlayerCount = PlayerPrefs.GetInt("PlayerCount", 2);
+        Debug.Log($"📊 InitializeGame: gaida {expectedPlayerCount} spēlētājus");
 
         while (!gameStarted)
         {
             PlayerMovement[] foundPlayers =
                 FindObjectsByType<PlayerMovement>(FindObjectsSortMode.None);
+
+            if (foundPlayers.Length > 0)
+            {
+                Debug.Log($"   Atrasti {foundPlayers.Length}/{expectedPlayerCount} spēlētāji");
+            }
 
             if (foundPlayers.Length >= expectedPlayerCount)
             {
@@ -66,12 +173,18 @@ public class GameTurnManager : MonoBehaviour
                 yield break;
             }
 
-            yield return null;
+            yield return new WaitForSeconds(0.1f);
         }
     }
 
     void FindAndLinkDiceAndPlayers()
     {
+        // ✅ Pārliecinamies, ka UI elementi ir atrasti
+        if (turnInfoText == null || diceObject == null)
+        {
+            FindUIElements();
+        }
+        
         DiceRollScript dice = FindFirstObjectByType<DiceRollScript>();
 
         if (dice == null)
@@ -103,6 +216,13 @@ public class GameTurnManager : MonoBehaviour
         if (playerIndex < allPlayers.Count)
         {
             allPlayers[playerIndex].ResetForNewTurn();
+
+            // ✅ RESET kauliņu PIRMS gājiena sākuma
+            DiceRollScript dice = FindFirstObjectByType<DiceRollScript>();
+            if (dice != null)
+            {
+                dice.ResetDice();
+            }
 
             if (allPlayers[playerIndex].isMainPlayer)
             {
@@ -191,6 +311,10 @@ public class GameTurnManager : MonoBehaviour
         if (turnInfoText != null)
         {
             turnInfoText.text = message;
+        }
+        else
+        {
+            Debug.LogWarning("⚠️ turnInfoText ir null, nevaru atjaunot UI!");
         }
         Debug.Log($"📢 UI: {message}");
     }
