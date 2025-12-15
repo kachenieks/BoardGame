@@ -16,6 +16,7 @@ public class PlayerMovement : MonoBehaviour
 
     private bool isMoving = false;
     private bool hasPlayedThisTurn = false;
+    private int totalStepsTaken = 0; // ✅ JAUNS: Skaita kopējos gājienus
 
     private DiceRollScript dice;
     private GameTurnManager turnManager;
@@ -45,6 +46,7 @@ public class PlayerMovement : MonoBehaviour
                 
                 int steps = int.Parse(dice.diceFaceNum);
                 hasPlayedThisTurn = true;
+                totalStepsTaken++; // ✅ Skaita gājienus
                 StartCoroutine(MoveAndNext(steps));
             }
         }
@@ -54,6 +56,7 @@ public class PlayerMovement : MonoBehaviour
             if (!hasPlayedThisTurn)
             {
                 hasPlayedThisTurn = true;
+                totalStepsTaken++; // ✅ Skaita gājienus
                 StartCoroutine(AIRoll());
             }
         }
@@ -118,15 +121,31 @@ public class PlayerMovement : MonoBehaviour
         for (int i = 0; i < steps; i++)
         {
             int next = currentTileIndex + 1;
-            if (next >= pathTiles.Count)
+            
+            // ✅ PĀRBAUDE: Vai sasniedzis 30. tile (vai pēdējo)
+            if (next >= 30 || next >= pathTiles.Count)
             {
-                // Spēlētājs ir sasniedzis finišu
-                Debug.Log($"🏁 Spēlētājs {playerIndex} sasniedza finišu!");
+                // Pārvietojies uz finišu
+                if (next < pathTiles.Count)
+                {
+                    yield return MoveTo(pathTiles[next]);
+                    currentTileIndex = next;
+                }
+                
+                Debug.Log($"🏁 Spēlētājs {playerIndex} sasniedza finiš! Gājieni: {totalStepsTaken}");
+                
+                // ✅ PARĀDI WIN SCREEN
+                if (isMainPlayer && WinScreenManager.Instance != null)
+                {
+                    string playerName = PlayerPrefs.GetString("PlayerName", "Player");
+                    WinScreenManager.Instance.ShowWinScreen(playerName, totalStepsTaken);
+                }
                 
                 if (turnManager != null)
                 {
                     turnManager.PlayerFinished(playerIndex);
                 }
+                
                 break;
             }
 
@@ -189,6 +208,7 @@ public class PlayerMovement : MonoBehaviour
         currentTileIndex = 0;
         hasPlayedThisTurn = false;
         isMoving = false;
+        totalStepsTaken = 0; // ✅ Reset gājienu skaitu
 
         if (pathTiles != null && pathTiles.Count > 0)
         {

@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.UI;
 
 public class SettingsManager : MonoBehaviour
 {
@@ -7,6 +8,11 @@ public class SettingsManager : MonoBehaviour
     [Header("Audio")]
     public AudioSource musicSource;
     public AudioSource sfxSource;
+
+    [Header("UI (optional)")]
+    public Slider musicSlider;
+    public Slider sfxSlider;
+    public Toggle musicToggle;
 
     const string MUSIC_VOL = "MusicVolume";
     const string SFX_VOL = "SFXVolume";
@@ -30,41 +36,68 @@ public class SettingsManager : MonoBehaviour
     {
         float musicVol = PlayerPrefs.GetFloat(MUSIC_VOL, 0.7f);
         float sfxVol   = PlayerPrefs.GetFloat(SFX_VOL, 0.7f);
-        int musicOn    = PlayerPrefs.GetInt(MUSIC_ON, 1);
+        bool musicOn   = PlayerPrefs.GetInt(MUSIC_ON, 1) == 1;
 
-        musicSource.volume = musicVol;
-        sfxSource.volume = sfxVol;
-        musicSource.mute = musicOn == 0;
+        Debug.Log($"Loading: Music={musicVol}, SFX={sfxVol}, MusicOn={musicOn}");
+
+        if (musicSource != null)
+        {
+            musicSource.volume = musicVol;
+            musicSource.mute = !musicOn;
+
+            if (musicOn && !musicSource.isPlaying)
+                musicSource.Play();
+        }
+        else
+        {
+            Debug.LogError("Music Source nav piešķirts!");
+        }
+
+        if (sfxSource != null)
+        {
+            sfxSource.volume = sfxVol;
+        }
+        else
+        {
+            Debug.LogError("SFX Source nav piešķirts!");
+        }
+
+        // UI sinhronizācija
+        if (musicSlider) musicSlider.value = musicVol;
+        if (sfxSlider) sfxSlider.value = sfxVol;
+        if (musicToggle) musicToggle.isOn = musicOn;
     }
 
-    // ---------- UI FUNKCIJAS ----------
+    // ---------- UI CALLBACKS ----------
 
     public void SetMusicVolume(float value)
-{
-    musicSource.volume = value;
-    musicSource.mute = value <= 0.01f ? true : false;
-
-    if (!musicSource.isPlaying && !musicSource.mute)
-        musicSource.Play();
-
-    PlayerPrefs.SetFloat("MusicVolume", value);
-}
-
+    {
+        if (musicSource != null)
+        {
+            musicSource.volume = value;
+            PlayerPrefs.SetFloat(MUSIC_VOL, value);
+        }
+    }
 
     public void SetSFXVolume(float value)
     {
-        sfxSource.volume = value;
-        PlayerPrefs.SetFloat(SFX_VOL, value);
+        if (sfxSource != null)
+        {
+            sfxSource.volume = value;
+            PlayerPrefs.SetFloat(SFX_VOL, value);
+        }
     }
 
     public void ToggleMusic(bool isOn)
-{
-    musicSource.mute = !isOn;
+    {
+        if (musicSource != null)
+        {
+            musicSource.mute = !isOn;
 
-    if (isOn && !musicSource.isPlaying)
-        musicSource.Play();
+            if (isOn && !musicSource.isPlaying)
+                musicSource.Play();
 
-    PlayerPrefs.SetInt("MusicOn", isOn ? 1 : 0);
-}
-
+            PlayerPrefs.SetInt(MUSIC_ON, isOn ? 1 : 0);
+        }
+    }
 }
