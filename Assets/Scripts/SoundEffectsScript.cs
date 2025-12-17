@@ -4,50 +4,70 @@ public class SoundEffectsScript : MonoBehaviour
 {
     public AudioClip[] soundEffects;
 
-    private AudioSource audioSource;
-
-    void Start()
+    private AudioSource GetSFXSource()
     {
-        // 🔗 Paņem SFX AudioSource no SettingsManager
-        if (SettingsManager.Instance != null)
+        if (SettingsManager.Instance != null && SettingsManager.Instance.sfxSource != null)
         {
-            audioSource = SettingsManager.Instance.sfxSource;
+            return SettingsManager.Instance.sfxSource;
         }
-        else
-        {
-            Debug.LogError("❌ SettingsManager nav atrasts!");
-        }
+        
+        Debug.LogError("⚠️ SettingsManager vai sfxSource nav pieejams!");
+        return null;
     }
 
     public void Hover()
     {
-        audioSource.PlayOneShot(soundEffects[0]);
+        AudioSource sfx = GetSFXSource();
+        if (sfx != null && soundEffects.Length > 0)
+        {
+            sfx.PlayOneShot(soundEffects[0]);
+        }
     }
 
     public void Click()
     {
-        audioSource.PlayOneShot(soundEffects[1]);
+        AudioSource sfx = GetSFXSource();
+        if (sfx != null && soundEffects.Length > 1)
+        {
+            sfx.PlayOneShot(soundEffects[1]);
+        }
     }
 
     public void OnDice()
     {
-        audioSource.loop = true;
-        audioSource.clip = soundEffects[2];
-        audioSource.Play();
+        AudioSource sfx = GetSFXSource();
+        if (sfx != null && soundEffects.Length > 2)
+        {
+            sfx.loop = true;
+            sfx.clip = soundEffects[2];
+            sfx.Play();
+        }
     }
 
     public void CancelButton()
     {
-        audioSource.PlayOneShot(soundEffects[3]);
+        AudioSource sfx = GetSFXSource();
+        if (sfx != null && soundEffects.Length > 3)
+        {
+            sfx.PlayOneShot(soundEffects[3]);
+        }
     }
 
     public void PlayButton()
     {
-        audioSource.PlayOneShot(soundEffects[4]);
+        AudioSource sfx = GetSFXSource();
+        if (sfx != null && soundEffects.Length > 4)
+        {
+            sfx.PlayOneShot(soundEffects[4]);
+        }
     }
 
     public void NameField()
     {
-        audioSource.PlayOneShot(soundEffects[5]);
+        AudioSource sfx = GetSFXSource();
+        if (sfx != null && soundEffects.Length > 5)
+        {
+            sfx.PlayOneShot(soundEffects[5]);
+        }
     }
 }

@@ -226,14 +226,14 @@ public class GameTurnManager : MonoBehaviour
 
             if (allPlayers[playerIndex].isMainPlayer)
             {
-                UpdateTurnUI("Tavs gājiens! 🎲 Met kauliņu!");
+                UpdateTurnUI("Tavs gājiens!");
 
                 if (diceObject != null)
                     diceObject.SetActive(true);
             }
             else
             {
-                UpdateTurnUI($"AI Spēlētājs {playerIndex} gājiens...");
+                UpdateTurnUI($"AI {playerIndex} gājiens...");
 
                 if (diceObject != null)
                     diceObject.SetActive(true);

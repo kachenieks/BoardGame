@@ -2,79 +2,56 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using System.Collections.Generic;
+using System.Collections;
 
-public class MainMenuLeaderboard : MonoBehaviour
+public class GameLeaderboard : MonoBehaviour
 {
     [Header("Leaderboard UI")]
-    public GameObject leaderboardPanel;
     public Transform leaderboardContent;
     public GameObject leaderboardEntryPrefab;
     public Button closeButton;
     
     void Start()
     {
-        // Sākumā slēpj leaderboard paneli
-        if (leaderboardPanel != null)
-        {
-            leaderboardPanel.SetActive(false);
-        }
-        
         // Pievieno close button funkcionalitāti
         if (closeButton != null)
         {
             closeButton.onClick.RemoveAllListeners();
             closeButton.onClick.AddListener(HideLeaderboard);
         }
-        else
-        {
-            Debug.LogWarning("⚠️ Close Button nav piesķirts MainMenuLeaderboard!");
-        }
     }
     
-    void Update()
+    void OnEnable()
     {
-        // Ja leaderboard ir atvērts un spied ESC, aizver
-        if (leaderboardPanel != null && leaderboardPanel.activeSelf)
-        {
-            if (Input.GetKeyDown(KeyCode.Escape))
-            {
-                HideLeaderboard();
-            }
-        }
+        // Izmanto coroutine lai atjaunotu pēc frame delay
+        StartCoroutine(RefreshLeaderboardDelayed());
     }
     
-    public void ShowLeaderboard()
+    IEnumerator RefreshLeaderboardDelayed()
     {
-        Debug.Log("📊 Atver leaderboard no Main Menu");
-        
-        if (leaderboardPanel == null)
-        {
-            Debug.LogError("❌ Leaderboard Panel nav piesķirts!");
-            return;
-        }
-        
-        if (LeaderboardManager.Instance == null)
-        {
-            Debug.LogError("❌ LeaderboardManager.Instance nav atrasts!");
-            return;
-        }
-        
-        // Parāda paneli
-        leaderboardPanel.SetActive(true);
-        
-        // Atjauno saturu
+        // Gaida vienu frame lai viss būtu ready
+        yield return null;
         RefreshLeaderboard();
     }
     
-    void RefreshLeaderboard()
+    public void RefreshLeaderboard()
     {
+        Debug.Log("🔄 Atjauno Leaderboard");
+        
         if (leaderboardContent == null)
         {
             Debug.LogError("❌ Leaderboard Content nav piesķirts!");
             return;
         }
         
-        // Notīra veco saturu
+        if (LeaderboardManager.Instance == null)
+        {
+            Debug.LogError("❌ LeaderboardManager.Instance nav atrasts!");
+            CreatePlaceholderText("Nav leaderboard managera!");
+            return;
+        }
+        
+        // Notīra veco saturu (ar realtime unscaled)
         List<GameObject> toDestroy = new List<GameObject>();
         foreach (Transform child in leaderboardContent)
         {
@@ -83,7 +60,7 @@ public class MainMenuLeaderboard : MonoBehaviour
         
         foreach (GameObject obj in toDestroy)
         {
-            Destroy(obj);
+            DestroyImmediate(obj);
         }
         
         // Iegūst TOP 10 rezultātus
@@ -93,8 +70,7 @@ public class MainMenuLeaderboard : MonoBehaviour
         
         if (topEntries.Count == 0)
         {
-            // Ja nav ierakstu, parādi placeholder tekstu
-            CreatePlaceholderText("Nav rezultātu. Spēlē lai iegūtu pirmo vietu!");
+            CreatePlaceholderText("Nav rezultātu vēl!");
             return;
         }
         
@@ -105,7 +81,10 @@ public class MainMenuLeaderboard : MonoBehaviour
             CreateLeaderboardEntry(i + 1, entry);
         }
         
-        Debug.Log($"✅ Main Menu Leaderboard atjaunots ar {topEntries.Count} ierakstiem");
+        // Force canvas update
+        Canvas.ForceUpdateCanvases();
+        
+        Debug.Log($"✅ Leaderboard atjaunots ar {topEntries.Count} ierakstiem");
     }
     
     void CreateLeaderboardEntry(int rank, LeaderboardEntry entry)
@@ -116,10 +95,16 @@ public class MainMenuLeaderboard : MonoBehaviour
             return;
         }
         
+        if (leaderboardContent == null)
+        {
+            Debug.LogError("❌ Leaderboard Content nav piesķirts!");
+            return;
+        }
+        
         GameObject entryObj = Instantiate(leaderboardEntryPrefab, leaderboardContent);
         entryObj.name = $"Entry_{rank}";
         
-        // Atrod text komponentus
+        // Atrod text komponentus - vairāki mēģinājumi
         TextMeshProUGUI[] allTexts = entryObj.GetComponentsInChildren<TextMeshProUGUI>(true);
         
         TextMeshProUGUI rankTxt = null;
@@ -151,10 +136,33 @@ public class MainMenuLeaderboard : MonoBehaviour
             else if (rank == 2) rankTxt.color = new Color(0.75f, 0.75f, 0.75f); // Sudrabs
             else if (rank == 3) rankTxt.color = new Color(0.8f, 0.5f, 0.2f); // Bronza
             else rankTxt.color = Color.white;
+            
+            Debug.Log($"✅ Rank #{rank} uzstādīts");
+        }
+        else
+        {
+            Debug.LogWarning($"⚠️ RankText nav atrasts entry {rank}");
         }
         
-        if (nameTxt != null) nameTxt.text = entry.playerName;
-        if (stepsTxt != null) stepsTxt.text = $"{entry.steps} gājieni";
+        if (nameTxt != null) 
+        {
+            nameTxt.text = entry.playerName;
+            Debug.Log($"✅ Name: {entry.playerName}");
+        }
+        else
+        {
+            Debug.LogWarning($"⚠️ NameText nav atrasts entry {rank}");
+        }
+        
+        if (stepsTxt != null) 
+        {
+            stepsTxt.text = $"{entry.steps} gājieni";
+            Debug.Log($"✅ Steps: {entry.steps}");
+        }
+        else
+        {
+            Debug.LogWarning($"⚠️ StepsText nav atrasts entry {rank}");
+        }
     }
     
     void CreatePlaceholderText(string message)
@@ -172,14 +180,23 @@ public class MainMenuLeaderboard : MonoBehaviour
         RectTransform rt = placeholder.GetComponent<RectTransform>();
         rt.sizeDelta = new Vector2(600, 100);
         rt.anchoredPosition = Vector2.zero;
+        
+        Debug.Log($"📝 Placeholder izveidots: {message}");
     }
     
     public void HideLeaderboard()
     {
-        if (leaderboardPanel != null)
+        Debug.Log("🏆 Aizver Leaderboard");
+        
+        // Ja ir PauseManager, izmanto to
+        if (PauseManager.Instance != null)
         {
-            leaderboardPanel.SetActive(false);
-            Debug.Log("📊 Leaderboard aizvērts (Main Menu)");
+            PauseManager.Instance.CloseLeaderboard();
+        }
+        else
+        {
+            // Citādi vienkārši slēpj paneli
+            gameObject.SetActive(false);
         }
     }
 }

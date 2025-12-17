@@ -229,4 +229,44 @@ public class PlayerMovement : MonoBehaviour
         dice = diceScript;
         Debug.Log($"🎲 Player {playerIndex}: Dice pieslēgts manuāli");
     }
+    // Pievieno šo metodi savā PlayerMovement.cs failā
+// Vienkārši pievieno pašā beigās pirms pēdējās }
+
+/// <summary>
+/// Debug metode - teleportē spēlētāju uz finiša līniju un parāda win screen
+/// </summary>
+public void CheckForWin()
+{
+    if (pathTiles == null || pathTiles.Count == 0)
+    {
+        Debug.LogError("❌ Nav pathTiles!");
+        return;
+    }
+    
+    // Teleportē uz pēdējo tile
+    int lastTileIndex = Mathf.Min(30, pathTiles.Count - 1);
+    currentTileIndex = lastTileIndex;
+    
+    if (currentTileIndex < pathTiles.Count)
+    {
+        Vector3 finishPos = pathTiles[currentTileIndex].position;
+        finishPos += new Vector3(playerIndex * 0.12f, 0, playerIndex * 0.06f);
+        transform.position = finishPos;
+    }
+    
+    Debug.Log($"🏁 DEBUG: Spēlētājs {playerIndex} teleportēts uz finiš! Gājieni: {totalStepsTaken}");
+    
+    // Parādi WIN SCREEN
+    if (isMainPlayer && WinScreenManager.Instance != null)
+    {
+        string playerName = PlayerPrefs.GetString("PlayerName", "Player");
+        WinScreenManager.Instance.ShowWinScreen(playerName, totalStepsTaken);
+    }
+    
+    // Paziņo turn manager
+    if (turnManager != null)
+    {
+        turnManager.PlayerFinished(playerIndex);
+    }
+}
 }
